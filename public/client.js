@@ -1,6 +1,6 @@
 const socket = io();
 
-// DOM elements
+// Handle Login
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const loginBtn = document.getElementById("login-btn");
@@ -29,37 +29,40 @@ const users = {
   "unknownplayers007@outlook.com": "Notch@1188",
 };
 
-// Handle Login
 loginBtn.addEventListener("click", () => {
   const email = emailInput.value;
   const password = passwordInput.value;
 
-  // Check if the credentials are valid
+  // Check credentials
   if (users[email] && users[email] === password) {
-    // Emit login event to the server
-    socket.emit("login", { email, password });
-
-    // Listen for the success or error message from the server
-    socket.on("loginSuccess", (username) => {
-      loginSection.classList.add("hidden");
-      chatSection.classList.remove("hidden");
-      chatUsername.innerHTML = `Welcome, ${username}`;
-      loggedInUsers.push(email);
-
-      // Check if the user is an admin
-      if (email === "unknownplayers001@outlook.com") {
-        isAdmin = true;
-        adminUsersList.classList.remove("hidden");
-        socket.emit("getUsers");
-      }
-    });
-
-    socket.on("loginError", (errorMessage) => {
-      loginError.innerText = errorMessage;
+    // Prevent same user from logging in multiple times
+    if (loggedInUsers.includes(email)) {
+      loginError.innerText = "This email is already logged in.";
       loginError.classList.remove("hidden");
-    });
+      return;
+    }
+
+    loggedInUsers.push(email);
+    username = email.split('@')[0];  // Get username from email
+
+    // Check if user is admin
+    if (email === "unknownplayers001@outlook.com") {
+      isAdmin = true;
+    }
+
+    loginSection.classList.add("hidden");
+    chatSection.classList.remove("hidden");
+    chatUsername.innerHTML = `Welcome, ${username}`;
+
+    if (isAdmin) {
+      clearChatBtn.classList.remove("hidden");
+      socket.emit("getUsers");  // Fetch all logged-in users for the admin
+    }
+
+    socket.emit("login", { username });
+
   } else {
-    loginError.innerText = "Invalid credentials";
+    loginError.innerText = "Invalid credentials.";
     loginError.classList.remove("hidden");
   }
 });
@@ -67,42 +70,34 @@ loginBtn.addEventListener("click", () => {
 // Listen for incoming messages
 socket.on("message", ({ username, message, timestamp }) => {
   const div = document.createElement("div");
-
-  // Check if the current username is the same as the message sender's username
-  if (username === chatUsername.innerText.replace("Welcome, ", "")) {
-    div.className = "message message-right"; // Current user's message
-  } else {
-    div.className = "message message-left";  // Other user's message
-  }
-
-  // Populate the message
+  div.className = username === username ? "message message-right" : "message message-left";
   div.innerHTML = `
     <div class="sender">${username}</div>
     <div>${message}</div>
     <div class="timestamp">${timestamp}</div>
   `;
-
-  // Append the message to the chat container
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
 });
 
 // Admin: Show list of logged-in users
 socket.on("updateUsers", (usersList) => {
-  adminUsersList.innerHTML = `<h4>Logged-in Users:</h4>`;
-  usersList.forEach((user) => {
-    const userDiv = document.createElement("div");
-    userDiv.innerText = user;
-    adminUsersList.appendChild(userDiv);
-  });
+  if (isAdmin) {
+    adminUsersList.innerHTML = `<h4>Logged-in Users:</h4>`;
+    usersList.forEach((user) => {
+      const userDiv = document.createElement("div");
+      userDiv.innerText = user;
+      adminUsersList.appendChild(userDiv);
+    });
+  }
 });
 
-// Handle sending message
+// Handle sending messages
 sendBtn.addEventListener("click", () => {
   const message = messageInput.value.trim();
   if (message) {
     const timestamp = new Date().toLocaleTimeString();
-    socket.emit("message", { message, timestamp });
+    socket.emit("message", { username, message, timestamp });
     messageInput.value = ""; // Clear the message input
   }
 });
@@ -118,4 +113,5 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 // Handle chat clearing (for admin)
 clearChatBtn.addEventListener("click", () => {
   messages.innerHTML = "";
+  socket.emit("clearChat");  // Optionally notify all users to clear their chat
 });
