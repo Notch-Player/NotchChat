@@ -6,83 +6,43 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-let loggedInUsers = {}; // Track logged-in users by their email
-const allowedUsers = [
-  "unknownplayers001@outlook.com",
-  "unknownplayers002@outlook.com",
-  "unknownplayers003@outlook.com",
-  "unknownplayers004@outlook.com",
-  "unknownplayers005@outlook.com",
-  "unknownplayers006@outlook.com",
-  "unknownplayers007@outlook.com",
-];
+let loggedInUsers = [];
 
-// Serve static files
 app.use(express.static("public"));
 
-// Handle new connections
 io.on("connection", (socket) => {
-  let currentEmail = "";
-  let currentUsername = "";
+  let currentUser = "";
 
-  // Handle login event
-  socket.on("login", ({ email, password }) => {
-    // If email is not in allowed list, reject login
-    if (!allowedUsers.includes(email)) {
-      socket.emit("loginError", "Email is not allowed.");
-      return;
-    }
-
-    // If the email is already logged in, reject
-    if (loggedInUsers[email]) {
+  socket.on("login", ({ username }) => {
+    currentUser = username;
+    // Prevent multiple logins from the same email
+    if (!loggedInUsers.includes(currentUser)) {
+      loggedInUsers.push(currentUser);
+      io.emit("updateUsers", loggedInUsers); // Update users list for the admin
+    } else {
       socket.emit("loginError", "This email is already logged in.");
-      return;
-    }
-
-    // Add user to loggedInUsers
-    loggedInUsers[email] = socket.id;
-    currentEmail = email;
-    currentUsername = email.split('@')[0]; // Use the part before the "@" as the username
-
-    // Notify all clients of updated users
-    io.emit("updateUsers", Object.keys(loggedInUsers));
-
-    // Emit the login success message to the client
-    socket.emit("loginSuccess", currentUsername);
-  });
-
-  // Handle new messages
-  socket.on("message", ({ message, timestamp }) => {
-    io.emit("message", {
-      username: currentUsername,
-      message,
-      timestamp,
-    });
-  });
-
-  // Handle user logout
-  socket.on("logout", () => {
-    if (currentEmail) {
-      delete loggedInUsers[currentEmail];
-      io.emit("updateUsers", Object.keys(loggedInUsers)); // Update users list for everyone
     }
   });
 
-  // Handle user disconnect
-  socket.on("disconnect", () => {
-    if (currentEmail) {
-      delete loggedInUsers[currentEmail];
-      io.emit("updateUsers", Object.keys(loggedInUsers)); // Update users list for everyone
-    }
+  socket.on("message", ({ username, message, timestamp }) => {
+    io.emit("message", { username, message, timestamp });
   });
 
-  // Get the list of logged-in users
   socket.on("getUsers", () => {
-    io.emit("updateUsers", Object.keys(loggedInUsers)); // Emit the list of users to the admin
+    io.emit("updateUsers", loggedInUsers); // Emit the list of users to the admin
+  });
+
+  socket.on("logout", () => {
+    loggedInUsers = loggedInUsers.filter((user) => user !== currentUser);
+    io.emit("updateUsers", loggedInUsers); // Update users list for the admin
+  });
+
+  socket.on("disconnect", () => {
+    loggedInUsers = loggedInUsers.filter((user) => user !== currentUser);
+    io.emit("updateUsers", loggedInUsers); // Update users list for the admin
   });
 });
 
-// Start the server
 server.listen(3000, () => {
   console.log("Server is running on port 3000");
 });
