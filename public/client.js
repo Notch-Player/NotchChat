@@ -50,11 +50,17 @@ sendBtn.addEventListener("click", () => {
 });
 
 socket.on("message", ({ username: user, message, timestamp }) => {
-    const div = document.createElement("div");
-    div.className = user === username ? "message message-right" : "message message-left";
-    div.innerHTML = `
-      <div>${message}</div>
-      <div class="timestamp">${timestamp}</div>
+  const div = document.createElement("div");
+  div.className = user === username ? "message message-right" : "message message-left";
+  div.innerHTML = `
+    <div class="sender">${user}</div>
+    <div>${message}</div>
+    <div class="timestamp">${timestamp}</div>
+  `;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
+});
+
     `;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
