@@ -6,33 +6,40 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+let loggedInUsers = [];
+
 app.use(express.static("public"));
 
-let activeUsers = [];
-
 io.on("connection", (socket) => {
-  console.log("A user connected");
+  let currentUser = "";
 
   socket.on("login", ({ username }) => {
-    activeUsers.push({ username, socketId: socket.id });
-    console.log(`${username} logged in.`);
+    currentUser = username;
+    if (!loggedInUsers.includes(currentUser)) {
+      loggedInUsers.push(currentUser);
+    }
+    io.emit("updateUsers", loggedInUsers); // Update users list for the admin
   });
 
   socket.on("message", ({ username, message, timestamp }) => {
     io.emit("message", { username, message, timestamp });
   });
 
+  socket.on("getUsers", () => {
+    io.emit("updateUsers", loggedInUsers); // Emit the list of users to the admin
+  });
+
   socket.on("logout", () => {
-    activeUsers = activeUsers.filter(user => user.socketId !== socket.id);
-    console.log("A user logged out.");
+    loggedInUsers = loggedInUsers.filter((user) => user !== currentUser);
+    io.emit("updateUsers", loggedInUsers); // Update users list for the admin
   });
 
   socket.on("disconnect", () => {
-    activeUsers = activeUsers.filter(user => user.socketId !== socket.id);
-    console.log("A user disconnected.");
+    loggedInUsers = loggedInUsers.filter((user) => user !== currentUser);
+    io.emit("updateUsers", loggedInUsers); // Update users list for the admin
   });
 });
 
 server.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
+  console.log("Server is running on port 3000");
 });
