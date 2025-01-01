@@ -1,94 +1,83 @@
-const socket = io();
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const path = require("path");
 
-const loginSection = document.getElementById("login-section");
-const chatSection = document.getElementById("chat-section");
-const loginError = document.getElementById("login-error");
-const messages = document.getElementById("messages");
-const messageInput = document.getElementById("message-input");
-const sendBtn = document.getElementById("send-btn");
-const typingIndicator = document.getElementById("typing-indicator");
-const clearChatBtn = document.getElementById("clear-chat-btn");
-const chatUsername = document.getElementById("chat-username");
-const logoutBtn = document.getElementById("logout-btn");
-const adminUsersList = document.getElementById("admin-users-list");
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-let username = "";
-let isAdmin = false;
+const PORT = process.env.PORT || 3000;
 
-document.getElementById("login-btn").addEventListener("click", () => {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+// Static files
+app.use(express.static(path.join(__dirname, "public")));
 
-  socket.emit("login", { email, password });
-});
+// Store users and messages
+let onlineUsers = {};
+let chatHistory = [];
 
-socket.on("loginError", (msg) => {
-  loginError.textContent = msg;
-  loginError.classList.remove("hidden");
-});
+// Authentication
+const AUTH_PASSWORD = "Notch@1188";
+const AUTH_EMAILS = [
+  "unknownplayers001@outlook.com",
+  "unknownplayers002@outlook.com",
+  "unknownplayers003@outlook.com",
+  "unknownplayers004@outlook.com",
+  "unknownplayers005@outlook.com",
+  "unknownplayers006@outlook.com",
+  "unknownplayers007@outlook.com",
+];
 
-socket.on("loginSuccess", ({ username: user, isAdmin: admin }) => {
-  username = user;
-  isAdmin = admin;
+// Socket.io connection
+io.on("connection", (socket) => {
+  console.log("A user connected");
 
-  loginSection.classList.add("hidden");
-  chatSection.classList.remove("hidden");
+  // Handle login
+  socket.on("login", ({ email, password }) => {
+    if (!AUTH_EMAILS.includes(email) || password !== AUTH_PASSWORD) {
+      socket.emit("loginError", "Invalid email or password");
+      return;
+    }
 
-  chatUsername.textContent = `Welcome, ${username}${isAdmin ? " (Admin)" : ""}`;
-  if (isAdmin) {
-    clearChatBtn.classList.remove("hidden");
-    adminUsersList.classList.remove("hidden");
-  }
-});
+    if (Object.values(onlineUsers).includes(email)) {
+      socket.emit("loginError", "This email is already logged in!");
+      return;
+    }
 
-sendBtn.addEventListener("click", () => {
-  const message = messageInput.value;
-  if (!message) return;
+    const username = email.split("@")[0];
+    onlineUsers[socket.id] = { email, username };
 
-  socket.emit("message", { username, message });
-  messageInput.value = "";
-});
-
-socket.on("message", ({ username: user, message, timestamp }) => {
-    const div = document.createElement("div");
-    div.className = user === username ? "message message-right" : "message message-left";
-    div.innerHTML = `
-      <div>${message}</div>
-      <div class="timestamp">${timestamp}</div>
-    `;
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
+    socket.emit("loginSuccess", { username, isAdmin: email === AUTH_EMAILS[0] });
+    io.emit("updateUsers", Object.values(onlineUsers));
+    socket.emit("loadChatHistory", chatHistory);
   });
 
-socket.on("updateUsers", (users) => {
-  if (isAdmin) {
-    adminUsersList.innerHTML = `<strong>Online Users:</strong><br>${users
-      .map((u) => u.username)
-      .join("<br>")}`;
-  }
+  // Handle messages
+  socket.on("message", ({ username, message }) => {
+    const msg = { username, message, timestamp: new Date().toLocaleTimeString() };
+    chatHistory.push(msg);
+    io.emit("message", msg);
+  });
+
+  // Typing indicator
+  socket.on("typing", (username) => {
+    socket.broadcast.emit("typing", username);
+  });
+
+  // Admin clears chat
+  socket.on("clearChat", () => {
+    chatHistory = [];
+    io.emit("clearChat");
+  });
+
+  // Disconnect
+  socket.on("disconnect", () => {
+    delete onlineUsers[socket.id];
+    io.emit("updateUsers", Object.values(onlineUsers));
+  });
 });
 
-socket.on("typing", (user) => {
-  typingIndicator.textContent = `${user} is typing...`;
-  typingIndicator.classList.remove("hidden");
-
-  setTimeout(() => typingIndicator.classList.add("hidden"), 1000);
+// Start server
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
-
-messageInput.addEventListener("input", () => {
-  socket.emit("typing", username);
-});
-
-logoutBtn.addEventListener("click", () => {
-  location.reload();
-});
-
-clearChatBtn.addEventListener("click", () => {
-  socket.emit("clearChat");
-});
-
-socket.on("clearChat", () => {
-  messages.innerHTML = "";
-});
-
-  
