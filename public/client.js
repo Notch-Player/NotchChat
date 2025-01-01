@@ -1,6 +1,6 @@
 const socket = io();
 
-// Handle Login
+// DOM elements
 const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const loginBtn = document.getElementById("login-btn");
@@ -29,39 +29,37 @@ const users = {
   "unknownplayers007@outlook.com": "Notch@1188",
 };
 
+// Handle Login
 loginBtn.addEventListener("click", () => {
   const email = emailInput.value;
   const password = passwordInput.value;
 
-  // Check credentials
+  // Check if the credentials are valid
   if (users[email] && users[email] === password) {
-    // Prevent same user from logging in multiple times
-    if (loggedInUsers.includes(email)) {
-      loginError.innerText = "This email is already logged in.";
+    // Emit login event to the server
+    socket.emit("login", { email, password });
+
+    // Listen for the success or error message from the server
+    socket.on("loginSuccess", (username) => {
+      loginSection.classList.add("hidden");
+      chatSection.classList.remove("hidden");
+      chatUsername.innerHTML = `Welcome, ${username}`;
+      loggedInUsers.push(email);
+
+      // Check if the user is an admin
+      if (email === "unknownplayers001@outlook.com") {
+        isAdmin = true;
+        adminUsersList.classList.remove("hidden");
+        socket.emit("getUsers");
+      }
+    });
+
+    socket.on("loginError", (errorMessage) => {
+      loginError.innerText = errorMessage;
       loginError.classList.remove("hidden");
-      return;
-    }
-
-    loggedInUsers.push(email);
-    username = email.split('@')[0];  // Get username from email
-
-    // Check if user is admin
-    if (email === "unknownplayers001@outlook.com") {
-      isAdmin = true;
-    }
-
-    loginSection.classList.add("hidden");
-    chatSection.classList.remove("hidden");
-    chatUsername.innerHTML = `Welcome, ${username}`;
-
-    if (isAdmin) {
-      // Show admin view (list of users)
-      adminUsersList.classList.remove("hidden");
-      socket.emit("getUsers"); // Emit event to get all logged-in users
-    }
-
-    socket.emit("login", { username });
+    });
   } else {
+    loginError.innerText = "Invalid credentials";
     loginError.classList.remove("hidden");
   }
 });
@@ -94,7 +92,7 @@ sendBtn.addEventListener("click", () => {
   const message = messageInput.value.trim();
   if (message) {
     const timestamp = new Date().toLocaleTimeString();
-    socket.emit("message", { username, message, timestamp });
+    socket.emit("message", { message, timestamp });
     messageInput.value = ""; // Clear the message input
   }
 });
