@@ -12,8 +12,11 @@ const sendBtn = document.getElementById("send-btn");
 const messageInput = document.getElementById("message-input");
 const messages = document.getElementById("messages");
 const clearChatBtn = document.getElementById("clear-chat-btn");
+const adminUsersList = document.getElementById("admin-users-list");
 
 let username = "";
+let isAdmin = false;
+let loggedInUsers = [];
 
 // Predefined users and credentials
 const users = {
@@ -32,24 +35,34 @@ loginBtn.addEventListener("click", () => {
 
   // Check credentials
   if (users[email] && users[email] === password) {
+    // Prevent same user from logging in multiple times
+    if (loggedInUsers.includes(email)) {
+      loginError.innerText = "This email is already logged in.";
+      loginError.classList.remove("hidden");
+      return;
+    }
+
+    loggedInUsers.push(email);
     username = email.split('@')[0];  // Get username from email
+
+    // Check if user is admin
+    if (email === "unknownplayers001@outlook.com") {
+      isAdmin = true;
+    }
+
     loginSection.classList.add("hidden");
     chatSection.classList.remove("hidden");
     chatUsername.innerHTML = `Welcome, ${username}`;
 
+    if (isAdmin) {
+      // Show admin view (list of users)
+      adminUsersList.classList.remove("hidden");
+      socket.emit("getUsers"); // Emit event to get all logged-in users
+    }
+
     socket.emit("login", { username });
   } else {
     loginError.classList.remove("hidden");
-  }
-});
-
-// Handle sending message
-sendBtn.addEventListener("click", () => {
-  const message = messageInput.value.trim();
-  if (message) {
-    const timestamp = new Date().toLocaleTimeString();
-    socket.emit("message", { username, message, timestamp });
-    messageInput.value = ""; // Clear the message input
   }
 });
 
@@ -66,9 +79,30 @@ socket.on("message", ({ username, message, timestamp }) => {
   messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
 });
 
+// Admin: Show list of logged-in users
+socket.on("updateUsers", (usersList) => {
+  adminUsersList.innerHTML = `<h4>Logged-in Users:</h4>`;
+  usersList.forEach((user) => {
+    const userDiv = document.createElement("div");
+    userDiv.innerText = user;
+    adminUsersList.appendChild(userDiv);
+  });
+});
+
+// Handle sending message
+sendBtn.addEventListener("click", () => {
+  const message = messageInput.value.trim();
+  if (message) {
+    const timestamp = new Date().toLocaleTimeString();
+    socket.emit("message", { username, message, timestamp });
+    messageInput.value = ""; // Clear the message input
+  }
+});
+
 // Handle logout
 document.getElementById("logout-btn").addEventListener("click", () => {
   socket.emit("logout");
+  loggedInUsers = loggedInUsers.filter((user) => user !== emailInput.value);
   chatSection.classList.add("hidden");
   loginSection.classList.remove("hidden");
 });
