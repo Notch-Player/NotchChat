@@ -1,83 +1,38 @@
 const express = require("express");
 const http = require("http");
-const { Server } = require("socket.io");
-const path = require("path");
+const socketIo = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = socketIo(server);
 
-const PORT = process.env.PORT || 3000;
+app.use(express.static("public"));
 
-// Static files
-app.use(express.static(path.join(__dirname, "public")));
+let activeUsers = [];
 
-// Store users and messages
-let onlineUsers = {};
-let chatHistory = [];
-
-// Authentication
-const AUTH_PASSWORD = "Notch@1188";
-const AUTH_EMAILS = [
-  "unknownplayers001@outlook.com",
-  "unknownplayers002@outlook.com",
-  "unknownplayers003@outlook.com",
-  "unknownplayers004@outlook.com",
-  "unknownplayers005@outlook.com",
-  "unknownplayers006@outlook.com",
-  "unknownplayers007@outlook.com",
-];
-
-// Socket.io connection
 io.on("connection", (socket) => {
   console.log("A user connected");
 
-  // Handle login
-  socket.on("login", ({ email, password }) => {
-    if (!AUTH_EMAILS.includes(email) || password !== AUTH_PASSWORD) {
-      socket.emit("loginError", "Invalid email or password");
-      return;
-    }
-
-    if (Object.values(onlineUsers).includes(email)) {
-      socket.emit("loginError", "This email is already logged in!");
-      return;
-    }
-
-    const username = email.split("@")[0];
-    onlineUsers[socket.id] = { email, username };
-
-    socket.emit("loginSuccess", { username, isAdmin: email === AUTH_EMAILS[0] });
-    io.emit("updateUsers", Object.values(onlineUsers));
-    socket.emit("loadChatHistory", chatHistory);
+  socket.on("login", ({ username }) => {
+    activeUsers.push({ username, socketId: socket.id });
+    console.log(`${username} logged in.`);
   });
 
-  // Handle messages
-  socket.on("message", ({ username, message }) => {
-    const msg = { username, message, timestamp: new Date().toLocaleTimeString() };
-    chatHistory.push(msg);
-    io.emit("message", msg);
+  socket.on("message", ({ username, message, timestamp }) => {
+    io.emit("message", { username, message, timestamp });
   });
 
-  // Typing indicator
-  socket.on("typing", (username) => {
-    socket.broadcast.emit("typing", username);
+  socket.on("logout", () => {
+    activeUsers = activeUsers.filter(user => user.socketId !== socket.id);
+    console.log("A user logged out.");
   });
 
-  // Admin clears chat
-  socket.on("clearChat", () => {
-    chatHistory = [];
-    io.emit("clearChat");
-  });
-
-  // Disconnect
   socket.on("disconnect", () => {
-    delete onlineUsers[socket.id];
-    io.emit("updateUsers", Object.values(onlineUsers));
+    activeUsers = activeUsers.filter(user => user.socketId !== socket.id);
+    console.log("A user disconnected.");
   });
 });
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+server.listen(3000, () => {
+  console.log("Server is running on http://localhost:3000");
 });
