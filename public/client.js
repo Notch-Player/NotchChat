@@ -1,83 +1,94 @@
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const path = require("path");
+const socket = io();
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const loginSection = document.getElementById("login-section");
+const chatSection = document.getElementById("chat-section");
+const loginError = document.getElementById("login-error");
+const messages = document.getElementById("messages");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const typingIndicator = document.getElementById("typing-indicator");
+const clearChatBtn = document.getElementById("clear-chat-btn");
+const chatUsername = document.getElementById("chat-username");
+const logoutBtn = document.getElementById("logout-btn");
+const adminUsersList = document.getElementById("admin-users-list");
 
-const PORT = process.env.PORT || 3000;
+let username = "";
+let isAdmin = false;
 
-// Static files
-app.use(express.static(path.join(__dirname, "public")));
+document.getElementById("login-btn").addEventListener("click", () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-// Store users and messages
-let onlineUsers = {};
-let chatHistory = [];
-
-// Authentication
-const AUTH_PASSWORD = "Notch@1188";
-const AUTH_EMAILS = [
-  "unknownplayers001@outlook.com",
-  "unknownplayers002@outlook.com",
-  "unknownplayers003@outlook.com",
-  "unknownplayers004@outlook.com",
-  "unknownplayers005@outlook.com",
-  "unknownplayers006@outlook.com",
-  "unknownplayers007@outlook.com",
-];
-
-// Socket.io connection
-io.on("connection", (socket) => {
-  console.log("A user connected");
-
-  // Handle login
-  socket.on("login", ({ email, password }) => {
-    if (!AUTH_EMAILS.includes(email) || password !== AUTH_PASSWORD) {
-      socket.emit("loginError", "Invalid email or password");
-      return;
-    }
-
-    if (Object.values(onlineUsers).includes(email)) {
-      socket.emit("loginError", "This email is already logged in!");
-      return;
-    }
-
-    const username = email.split("@")[0];
-    onlineUsers[socket.id] = { email, username };
-
-    socket.emit("loginSuccess", { username, isAdmin: email === AUTH_EMAILS[0] });
-    io.emit("updateUsers", Object.values(onlineUsers));
-    socket.emit("loadChatHistory", chatHistory);
-  });
-
-  // Handle messages
-  socket.on("message", ({ username, message }) => {
-    const msg = { username, message, timestamp: new Date().toLocaleTimeString() };
-    chatHistory.push(msg);
-    io.emit("message", msg);
-  });
-
-  // Typing indicator
-  socket.on("typing", (username) => {
-    socket.broadcast.emit("typing", username);
-  });
-
-  // Admin clears chat
-  socket.on("clearChat", () => {
-    chatHistory = [];
-    io.emit("clearChat");
-  });
-
-  // Disconnect
-  socket.on("disconnect", () => {
-    delete onlineUsers[socket.id];
-    io.emit("updateUsers", Object.values(onlineUsers));
-  });
+  socket.emit("login", { email, password });
 });
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+socket.on("loginError", (msg) => {
+  loginError.textContent = msg;
+  loginError.classList.remove("hidden");
 });
+
+socket.on("loginSuccess", ({ username: user, isAdmin: admin }) => {
+  username = user;
+  isAdmin = admin;
+
+  loginSection.classList.add("hidden");
+  chatSection.classList.remove("hidden");
+
+  chatUsername.textContent = `Welcome, ${username}${isAdmin ? " (Admin)" : ""}`;
+  if (isAdmin) {
+    clearChatBtn.classList.remove("hidden");
+    adminUsersList.classList.remove("hidden");
+  }
+});
+
+sendBtn.addEventListener("click", () => {
+  const message = messageInput.value;
+  if (!message) return;
+
+  socket.emit("message", { username, message });
+  messageInput.value = "";
+});
+
+socket.on("message", ({ username: user, message, timestamp }) => {
+    const div = document.createElement("div");
+    div.className = user === username ? "message message-right" : "message message-left";
+    div.innerHTML = `
+      <div>${message}</div>
+      <div class="timestamp">${timestamp}</div>
+    `;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
+  });
+
+socket.on("updateUsers", (users) => {
+  if (isAdmin) {
+    adminUsersList.innerHTML = `<strong>Online Users:</strong><br>${users
+      .map((u) => u.username)
+      .join("<br>")}`;
+  }
+});
+
+socket.on("typing", (user) => {
+  typingIndicator.textContent = `${user} is typing...`;
+  typingIndicator.classList.remove("hidden");
+
+  setTimeout(() => typingIndicator.classList.add("hidden"), 1000);
+});
+
+messageInput.addEventListener("input", () => {
+  socket.emit("typing", username);
+});
+
+logoutBtn.addEventListener("click", () => {
+  location.reload();
+});
+
+clearChatBtn.addEventListener("click", () => {
+  socket.emit("clearChat");
+});
+
+socket.on("clearChat", () => {
+  messages.innerHTML = "";
+});
+
+  
