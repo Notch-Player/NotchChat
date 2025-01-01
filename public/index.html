@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notch SMP Chat</title>
+    <style>
+        /* General Styles */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: url('https://wallpapers.com/images/hd/4k-minecraft-brick-landscape-r6hdr0a9yelsq923.jpg') no-repeat center center fixed;
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+
+        h2 {
+            color: #3399ff;
+            text-shadow: 2px 2px 5px #000000;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #3399ff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            text-shadow: 1px 1px 2px #000000;
+            transition: 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0066cc;
+        }
+
+        input {
+            border: 2px solid #3399ff;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: rgba(255, 255, 255, 0.9); /* Transparent white */
+            color: #000;
+        }
+
+        #login, #chatroom {
+            background: rgba(0, 0, 0, 0.75); /* Semi-transparent black */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 20px rgba(51, 153, 255, 0.8);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        #messages {
+            background: rgba(255, 255, 255, 0.85); /* Semi-transparent white */
+            border: 2px solid #3399ff;
+            padding: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        li {
+            list-style: none;
+            margin: 5px;
+            padding: 10px;
+            border-radius: 5px;
+            text-shadow: 1px 1px 3px #000;
+            max-width: 70%;
+        }
+
+        .message-left {
+            background-color: rgba(0, 102, 204, 0.8); /* Semi-transparent blue */
+            color: #fff;
+            text-align: left;
+        }
+
+        .message-right {
+            background-color: rgba(51, 153, 255, 0.8); /* Semi-transparent lighter blue */
+            color: #fff;
+            text-align: right;
+            margin-left: auto;
+        }
+
+        .error {
+            color: #ff3333;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="login">
+        <h2>Login to Notch SMP Chat</h2>
+        <input id="email" type="email" placeholder="Email" required />
+        <input id="password" type="password" placeholder="Password" required />
+        <button id="login-btn">Login</button>
+        <p id="login-error" class="error"></p>
+    </div>
+
+    <div id="chatroom" style="display: none;">
+        <h2>Notch SMP Chatroom</h2>
+        <div id="messages"></div>
+        <input id="message-input" autocomplete="off" placeholder="Type a message..." />
+        <button id="send-btn">Send</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const loginDiv = document.getElementById('login');
+        const chatroomDiv = document.getElementById('chatroom');
+        const loginBtn = document.getElementById('login-btn');
+        const sendBtn = document.getElementById('send-btn');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginError = document.getElementById('login-error');
+        const messages = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+
+        const socket = io();
+
+        let username = '';
+
+        // Show login screen
+        loginDiv.style.display = 'block';
+
+        // Handle login
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const result = await response.json();
+            if (result.success) {
+                username = result.username;
+                loginDiv.style.display = 'none';
+                chatroomDiv.style.display = 'block';
+            } else {
+                loginError.textContent = result.message;
+            }
+        });
+
+        // Send message
+        sendBtn.addEventListener('click', () => {
+            const message = messageInput.value;
+            if (message.trim()) {
+                // Add the message to the UI as "own message"
+                addMessageToUI({ username, message }, true);
+
+                // Emit the message to the server
+                socket.emit('chat message', { username, message });
+
+                // Clear the input field
+                messageInput.value = '';
+            }
+        });
+
+        // Display incoming messages (from other users)
+        socket.on('chat message', (data) => {
+            addMessageToUI(data, false);
+        });
+
+        // Add message to UI
+        function addMessageToUI({ username: msgUser, message }, isOwnMessage) {
+            const li = document.createElement('li');
+            li.classList.add(isOwnMessage ? 'message-right' : 'message-left');
+            li.textContent = `${msgUser}: ${message}`;
+            messages.appendChild(li);
+            messages.scrollTop = messages.scrollHeight;
+        }
+    </script>
+</body>
+</html>
