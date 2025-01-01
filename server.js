@@ -10,12 +10,16 @@ let loggedInUsers = [];
 
 app.use(express.static("public"));
 
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
+
 io.on("connection", (socket) => {
   let currentUser = "";
 
   socket.on("login", ({ username }) => {
     currentUser = username;
-    // Prevent multiple logins from the same email
+    // Prevent multiple logins from the same user
     if (!loggedInUsers.includes(currentUser)) {
       loggedInUsers.push(currentUser);
       io.emit("updateUsers", loggedInUsers); // Update users list for the admin
@@ -43,6 +47,8 @@ io.on("connection", (socket) => {
   });
 });
 
-server.listen(3000, () => {
-  console.log("Server is running on port 3000");
+// Listen on the port provided by Render or default to 3000
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
