@@ -67,19 +67,22 @@ loginBtn.addEventListener("click", () => {
 // Listen for incoming messages
 socket.on("message", ({ username, message, timestamp }) => {
   const div = document.createElement("div");
-  
-  // If the message is from the logged-in user, align it to the right, else left
-  if (username === chatUsername.innerHTML.replace("Welcome, ", "")) {
-    div.className = "message message-right";  // User's message on the right
+
+  // Check if the current username is the same as the message sender's username
+  if (username === chatUsername.innerText.replace("Welcome, ", "")) {
+    div.className = "message message-right"; // Current user's message
   } else {
-    div.className = "message message-left";   // Other users' message on the left
+    div.className = "message message-left";  // Other user's message
   }
 
+  // Populate the message
   div.innerHTML = `
     <div class="sender">${username}</div>
-    <div class="message-content">${message}</div>
+    <div>${message}</div>
     <div class="timestamp">${timestamp}</div>
   `;
+
+  // Append the message to the chat container
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
 });
@@ -99,7 +102,7 @@ sendBtn.addEventListener("click", () => {
   const message = messageInput.value.trim();
   if (message) {
     const timestamp = new Date().toLocaleTimeString();
-    socket.emit("message", { username: chatUsername.innerHTML.replace("Welcome, ", ""), message, timestamp });
+    socket.emit("message", { message, timestamp });
     messageInput.value = ""; // Clear the message input
   }
 });
