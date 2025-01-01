@@ -39,46 +39,34 @@
 
     /* Chat bubble styles */
     .message {
-      max-width: 75%; /* Automatically adjusts to the content */
-      word-wrap: break-word; /* Wrap text for long messages */
-      margin: 10px 0;
-      padding: 10px 15px;
-      border-radius: 15px;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      position: relative;
-      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-    }
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+  width: auto;
+  max-width: 70%;
+}
 
-    .message-left {
-      background-color: #ffffff; /* White background for received messages */
-      color: #000; /* Black text */
-      margin-left: 10px;
-      text-align: left;
-    }
+.message-left {
+  background-color: #d0e6ff;
+  align-self: flex-start;
+}
 
-    .message-right {
-      background-color: #b3d9ff; /* Light blue background for sent messages */
-      color: #000; /* Black text */
-      margin-left: auto;
-      margin-right: 10px;
-      text-align: right;
-    }
+.message-right {
+  background-color: #b3e0ff;
+  align-self: flex-end;
+}
 
-    .message .timestamp {
-      font-size: 0.7rem;
-      color: #777;
-      position: absolute;
-      bottom: -15px;
-      right: 10px;
-    }
+.sender {
+  font-weight: bold;
+  font-size: 0.9em;
+}
 
-    .message .sender {
-      font-weight: bold;
-      font-size: 0.8rem;
-      margin-bottom: 5px;
-    }
-
+.timestamp {
+  font-size: 0.8em;
+  color: #888;
+  text-align: right;
+}
     .chat-box {
       height: 400px;
       overflow-y: auto;
