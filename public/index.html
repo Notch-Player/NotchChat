@@ -39,34 +39,46 @@
 
     /* Chat bubble styles */
     .message {
-  margin-bottom: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  background-color: #f0f0f0;
-  width: auto;
-  max-width: 70%;
-}
+      max-width: 75%; /* Automatically adjusts to the content */
+      word-wrap: break-word; /* Wrap text for long messages */
+      margin: 10px 0;
+      padding: 10px 15px;
+      border-radius: 15px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      position: relative;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    }
 
-.message-left {
-  background-color: #d0e6ff;
-  align-self: flex-start;
-}
+    .message-left {
+      background-color: #ffffff; /* White background for received messages */
+      color: #000; /* Black text */
+      margin-left: 10px;
+      text-align: left;
+    }
 
-.message-right {
-  background-color: #b3e0ff;
-  align-self: flex-end;
-}
+    .message-right {
+      background-color: #b3d9ff; /* Light blue background for sent messages */
+      color: #000; /* Black text */
+      margin-left: auto;
+      margin-right: 10px;
+      text-align: right;
+    }
 
-.sender {
-  font-weight: bold;
-  font-size: 0.9em;
-}
+    .message .timestamp {
+      font-size: 0.7rem;
+      color: #777;
+      position: absolute;
+      bottom: -15px;
+      right: 10px;
+    }
 
-.timestamp {
-  font-size: 0.8em;
-  color: #888;
-  text-align: right;
-}
+    .message .sender {
+      font-weight: bold;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+    }
+
     .chat-box {
       height: 400px;
       overflow-y: auto;
@@ -104,7 +116,7 @@
       <input id="email" type="email" placeholder="Email" class="block p-2 border rounded w-full mb-3">
       <input id="password" type="password" placeholder="Password" class="block p-2 border rounded w-full mb-3">
       <button id="login-btn" class="p-2 bg-blue-500 text-white rounded w-full">Login</button>
-      <p id="login-error" class="text-red-500 mt-2 hidden">Invalid credentials</p>
+      <p id="login-error" class="text-red-500 mt-2 hidden">Invalid credentials or user already logged in.</p>
     </div>
 
     <!-- Chat Section -->
