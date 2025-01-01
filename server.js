@@ -1,74 +1,94 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
+const socket = io();
 
-const PORT = process.env.PORT || 3000;
+const loginSection = document.getElementById("login-section");
+const chatSection = document.getElementById("chat-section");
+const loginError = document.getElementById("login-error");
+const messages = document.getElementById("messages");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const typingIndicator = document.getElementById("typing-indicator");
+const clearChatBtn = document.getElementById("clear-chat-btn");
+const chatUsername = document.getElementById("chat-username");
+const logoutBtn = document.getElementById("logout-btn");
+const adminUsersList = document.getElementById("admin-users-list");
 
-// Credentials
-const AUTH_PASSWORD = 'Notch@1188';
-const AUTH_EMAILS = [
-    'unknownplayers001@outlook.com',
-    'unknownplayers002@outlook.com',
-    'unknownplayers003@outlook.com',
-    'unknownplayers004@outlook.com',
-    'unknownplayers005@outlook.com',
-    'unknownplayers006@outlook.com',
-    'unknownplayers007@outlook.com',
-];
+let username = "";
+let isAdmin = false;
 
-// Track active users by email to prevent duplicates
-let activeUsers = {};
+document.getElementById("login-btn").addEventListener("click", () => {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-// Serve static files
-app.use(express.static('public'));
-
-// Authentication endpoint
-app.post('/login', express.json(), (req, res) => {
-    const { email, password } = req.body;
-
-    if (!AUTH_EMAILS.includes(email)) {
-        return res.status(401).json({ success: false, message: 'Email not authorized!' });
-    }
-
-    if (activeUsers[email]) {
-        return res.status(401).json({ success: false, message: 'This email is already in use by another user!' });
-    }
-
-    if (password === AUTH_PASSWORD) {
-        const username = email.split('@')[0]; // Extract username from email
-        activeUsers[email] = username;  // Mark email as logged in
-        return res.status(200).json({ success: true, username });
-    }
-
-    res.status(401).json({ success: false, message: 'Invalid credentials!' });
+  socket.emit("login", { email, password });
 });
 
-// Socket.io connection
-io.on('connection', (socket) => {
-    console.log('A user connected');
-
-    // Handle cahat message
-    socket.on('chat message', ({ username, message }) => {
-        // Broadcast the message to all other clients, excluding the sender
-        socket.broadcast.emit('chat message', { username, message });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
-        // Clean up user when they disconnect
-        for (let email in activeUsers) {
-            if (activeUsers[email] === socket.username) {
-                delete activeUsers[email];
-                break;
-            }
-        }
-    });
+socket.on("loginError", (msg) => {
+  loginError.textContent = msg;
+  loginError.classList.remove("hidden");
 });
 
-// Start server
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+socket.on("loginSuccess", ({ username: user, isAdmin: admin }) => {
+  username = user;
+  isAdmin = admin;
+
+  loginSection.classList.add("hidden");
+  chatSection.classList.remove("hidden");
+
+  chatUsername.textContent = `Welcome, ${username}${isAdmin ? " (Admin)" : ""}`;
+  if (isAdmin) {
+    clearChatBtn.classList.remove("hidden");
+    adminUsersList.classList.remove("hidden");
+  }
 });
+
+sendBtn.addEventListener("click", () => {
+  const message = messageInput.value;
+  if (!message) return;
+
+  socket.emit("message", { username, message });
+  messageInput.value = "";
+});
+
+socket.on("message", ({ username: user, message, timestamp }) => {
+    const div = document.createElement("div");
+    div.className = user === username ? "message message-right" : "message message-left";
+    div.innerHTML = `
+      <div>${message}</div>
+      <div class="timestamp">${timestamp}</div>
+    `;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight; // Auto-scroll to the latest message
+  });
+
+socket.on("updateUsers", (users) => {
+  if (isAdmin) {
+    adminUsersList.innerHTML = `<strong>Online Users:</strong><br>${users
+      .map((u) => u.username)
+      .join("<br>")}`;
+  }
+});
+
+socket.on("typing", (user) => {
+  typingIndicator.textContent = `${user} is typing...`;
+  typingIndicator.classList.remove("hidden");
+
+  setTimeout(() => typingIndicator.classList.add("hidden"), 1000);
+});
+
+messageInput.addEventListener("input", () => {
+  socket.emit("typing", username);
+});
+
+logoutBtn.addEventListener("click", () => {
+  location.reload();
+});
+
+clearChatBtn.addEventListener("click", () => {
+  socket.emit("clearChat");
+});
+
+socket.on("clearChat", () => {
+  messages.innerHTML = "";
+});
+
+  
